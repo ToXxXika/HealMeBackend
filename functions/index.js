@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const cors = require("cors")({origin:true});
 admin.initializeApp();
 
 exports.Login= functions.https.onRequest(async(req,res)=>{
@@ -130,3 +131,79 @@ exports.getAllDoctors  = functions.https.onRequest(async(req,res)=>{
     }    
 });
 
+exports.AddDoctor = functions.https.onRequest(async(req,res)=>{
+    cors(req,res,async()=>{
+        try {
+            const {name,surname,speciality,location,phone,email}= req.body;
+            const doctor = await admin.firestore().collection('doctors').add({
+                name:name,
+                surname:surname,
+                speciality:speciality,
+                location:location,
+                phone:phone,
+                email:email,
+
+            });
+            if(doctor){
+                res.status(200).send("Doctor Added to the database");
+                return ; 
+
+            }
+
+        } catch (error) {
+            console.log(error);
+            res.status(400).send(error.message);
+        }
+    });
+    
+});
+exports.DeleteDoctor = functions.https.onRequest(async(req,res)=>{''
+   cors(req,res,async()=>{
+        const {doctorId} = req.body;
+        try {
+            const meet = await admin.firestore().collection('rendezvous').where('doctorId','==',doctorId).get();
+            if(!meet.empty){
+            const doctor = await admin.firestore().collection('doctors').doc(doctorId).delete();
+            if(doctor){
+                res.status(200).send("Doctor Deleted");
+                return ; 
+            }
+        }else{
+            res.status(401).send("Doctor has rendezvous");
+        }
+        }catch(error){
+            console.log(error);
+            res.status(400).send(error.message);
+        }
+   });
+});
+// TODO : need to modify this function to get the doctor id from the rendezvous collection
+exports.notifyUser = functions.firestore.document('AddDoctor/{doctorId}').onCreate(async(snap,context)=>{
+    const {name,surname,speciality,location,phone,email} = snap.data();
+    const payload = {
+        notification:{
+            title:"New Doctor Added",
+            body:`${name} ${surname} is now available in ${location} for ${speciality}`,
+            icon:"default",
+            click_action:"com.example.medicalapp_TARGET_NOTIFICATION"
+        }
+    };
+    return admin.messaging().sendToTopic("rendezvous",payload);
+});
+exports.checkRendezVous = functions.https.onRequest(async(req,res)=>{
+   cors(req,res,async()=>{
+       const {userId,date,time} = req.body;
+         try {
+            const rendezvous = await admin.firestore().collection('rendezvous').where('userId','==',userId).where('date','==',date).where('time','==',time).get();
+            if(!rendezvous.empty){
+                res.status(200).send("Rendezvous Already Set");
+                return ;
+            }else{
+                res.status(401).send("Rendezvous Not Set");
+            }
+
+         }catch (error) {
+           res.status(400).send(<error className="message"></error>)
+         }
+   })
+});
