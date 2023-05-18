@@ -3,28 +3,46 @@ const admin = require("firebase-admin");
 const cors = require("cors")({origin: true});
 
 const axios = require("axios");
+const { Transaction } = require("firebase-admin/firestore");
 admin.initializeApp();
 
 // WORKS
 exports.Login = functions.https.onRequest(async (req, res) => {
-    const {email, password} = req.body;
-    try {
 
-        const user = await admin.auth().getUserByEmail(email);
-        const token = await admin.auth().createCustomToken(user.uid);
-
-        res.status(200).send("Login Success");
-    } catch (error) {
-        console.log(error);
-        res.status(400).send(error.message);
-    }
+    cors(req,res,async()=>{
+        const {email, password} = req.body;
+        console.log(email);
+        try {
+    
+            const user = await admin.auth().getUserByEmail(email);
+            const token = await admin.auth().createCustomToken(user.uid);
+            let payload ={}
+             if(user){
+                 payload = {
+                    status:200,
+                    user:user,
+                }
+                res.status(200).send(payload);
+             }else{
+                payload={
+                    status:400,
+                    message:"User not found",
+                }
+             }
+        } catch (error) {
+            console.log(error);
+            res.status(400).send(error.message);
+        }
+    });
+   
 });
 // WORKS
 exports.Register = functions.https.onRequest(async (req, res) => {
+   cors(req,res,async()=>{
     const {name, surname, email, password, phone, role} = req.body;
     try {
 
-
+        let payload = {};
         const userRecord = await admin.firestore().collection('users').add({
             name: name,
             surname: surname,
@@ -37,7 +55,22 @@ exports.Register = functions.https.onRequest(async (req, res) => {
                 email: email,
                 password: password,
             });
-            res.status(200).send("Register Success");
+             if(user){
+                payload={
+                    status:200,
+                    message:"User created successfully",
+                    utilisateur:userRecord,
+                }
+                res.status(200).send(payload);
+                return;
+             }
+            
+        }else{
+            payload={
+                status:400,
+                message:"User not created",
+            }
+            res.status(400).send(payload);
             return;
         }
 
@@ -46,6 +79,8 @@ exports.Register = functions.https.onRequest(async (req, res) => {
         console.log(error);
         res.status(405).send(error.message);
     }
+   });
+ 
 })
 exports.getDoctors = functions.https.onRequest(async (req, res) => {
     try {
@@ -241,3 +276,5 @@ exports.searchclinic = async (req, res) => {
         res.status(400).send(error.message)
     }
 }
+
+
