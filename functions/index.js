@@ -1,86 +1,86 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const cors = require("cors")({origin: true});
-
+const nodemailer = require('nodemailer')
 const axios = require("axios");
-const { Transaction } = require("firebase-admin/firestore");
+const {Transaction} = require("firebase-admin/firestore");
 admin.initializeApp();
 
 // WORKS
 exports.Login = functions.https.onRequest(async (req, res) => {
 
-    cors(req,res,async()=>{
+    cors(req, res, async () => {
         const {email, password} = req.body;
         console.log(email);
         try {
-    
+
             const user = await admin.auth().getUserByEmail(email);
             const token = await admin.auth().createCustomToken(user.uid);
-            let payload ={}
-             if(user){
-                 payload = {
-                    status:200,
-                    user:user,
+            let payload = {}
+            if (user) {
+                payload = {
+                    status: 200,
+                    user: user,
                 }
                 res.status(200).send(payload);
-             }else{
-                payload={
-                    status:400,
-                    message:"User not found",
+            } else {
+                payload = {
+                    status: 400,
+                    message: "User not found",
                 }
-             }
+            }
         } catch (error) {
             console.log(error);
             res.status(400).send(error.message);
         }
     });
-   
+
 });
 // WORKS
 exports.Register = functions.https.onRequest(async (req, res) => {
-   cors(req,res,async()=>{
-    const {name, surname, email, password, phone, role} = req.body;
-    try {
+    cors(req, res, async () => {
+        const {name, surname, email, password, phone, role} = req.body;
+        try {
 
-        let payload = {};
-        const userRecord = await admin.firestore().collection('users').add({
-            name: name,
-            surname: surname,
-            email: email,
-            phone: phone,
-            role: role
-        });
-        if (userRecord) {
-            const user = await admin.auth().createUser({
+            let payload = {};
+            const userRecord = await admin.firestore().collection('users').add({
+                name: name,
+                surname: surname,
                 email: email,
-                password: password,
+                phone: phone,
+                role: role
             });
-             if(user){
-                payload={
-                    status:200,
-                    message:"User created successfully",
-                    utilisateur:userRecord,
+            if (userRecord) {
+                const user = await admin.auth().createUser({
+                    email: email,
+                    password: password,
+                });
+                if (user) {
+                    payload = {
+                        status: 200,
+                        message: "User created successfully",
+                        utilisateur: userRecord,
+                    }
+                    res.status(200).send(payload);
+                    return;
                 }
-                res.status(200).send(payload);
+
+            } else {
+                payload = {
+                    status: 400,
+                    message: "User not created",
+                }
+                res.status(400).send(payload);
                 return;
-             }
-            
-        }else{
-            payload={
-                status:400,
-                message:"User not created",
             }
-            res.status(400).send(payload);
-            return;
+
+
+        } catch (error) {
+            console.log(error);
+            res.status(405).send(error.message);
         }
+    });
 
-
-    } catch (error) {
-        console.log(error);
-        res.status(405).send(error.message);
-    }
-   });
- 
 })
 exports.getDoctors = functions.https.onRequest(async (req, res) => {
     try {
@@ -149,39 +149,44 @@ exports.getDoctorRendezVous = functions.https.onRequest(async (req, res) => {
 });
 // WORKS
 exports.getAllUsers = functions.https.onRequest(async (req, res) => {
+    cors(req, res, async () => {
+        const users = await admin.firestore().collection('users').get();
+        const usersList = [];
+        try {
+            users.forEach((doc) => {
+                usersList.push(doc.data());
+            });
+            res.status(200).send(usersList);
 
-    const users = await admin.firestore().collection('users').get();
-    const usersList = [];
-    try {
-        users.forEach((doc) => {
-            usersList.push(doc.data());
-        });
-        res.status(200).send(usersList);
-
-    } catch (error) {
-        res.status(400).send("error while getting users list", error)
-    }
+        } catch (error) {
+            res.status(400).send("error while getting users list", error)
+        }
+    });
 
 });
 //WORKS
 exports.getAllDoctors = functions.https.onRequest(async (req, res) => {
-    const doctors = await admin.firestore().collection('doctors').get();
-    const doctorsList = [];
-    try {
-        doctors.forEach((doc) => {
-            doctorsList.push(doc.data());
-        });
-        res.status(200).send(doctorsList);
+    cors(req, res, async () => {
+        const doctors = await admin.firestore().collection('doctors').get();
+        const doctorsList = [];
+        try {
+            doctors.forEach((doc) => {
+                doctorsList.push(doc.data());
+            });
+            res.status(200).send(doctorsList);
 
-    } catch (error) {
-        res.status(400).send("error while getting doctors list", error)
-    }
+        } catch (error) {
+            res.status(400).send("error while getting doctors list", error)
+        }
+    })
+
 });
 //WORKS
 exports.AddDoctor = functions.https.onRequest(async (req, res) => {
     cors(req, res, async () => {
+        let payload = {};
         try {
-            const {name, surname, speciality, location, phone, email,password} = req.body;
+            const {name, surname, speciality, location, phone, email, password} = req.body;
             const doctor = await admin.firestore().collection('doctors').add({
                 name: name,
                 surname: surname,
@@ -196,8 +201,76 @@ exports.AddDoctor = functions.https.onRequest(async (req, res) => {
                     email: email,
                     password: password,
                 });
-                res.status(200).send("Doctor Added to the database");
-                return;
+                if (doctorauth) {
+
+
+                    let transporter = nodemailer.createTransport({
+                        service: "gmail",
+                        host: 'smtp.gmail.com',
+                        port: 587,
+                        secure: false,
+                        auth: {
+                            user: 'ikasou.666@gmail.com',
+                            pass: 'juekkylgngfjuhbu',
+
+                        },
+                    });
+
+                    const html = `
+    <html>
+      <head>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+          }
+
+          h1 {
+            color: #007bff;
+          }
+
+          p {
+            margin: 10px 0;
+          }
+
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Ajout dans la plateforme HEAL ME ✔</h1>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Mot de passe:</strong> ${password}</p>
+        </div>
+      </body>
+    </html>
+  `;
+                    let info = transporter.sendMail({
+                        from: "ikasou.666@gmail.com",
+                        to: email,
+                        subject: "Ajout dans la plateforme HEAL ME ✔ ",
+                        html:html
+                    });
+                    console.log(info.messageId);
+                    payload = {
+                        status: "200",
+                        info: info,
+                        doctor: doctor
+                    }
+                    res.status(200).send(payload);
+
+                } else {
+                    res.status(400).send("Probleme dans ajout d authentification")
+                }
+
 
             }
 
@@ -211,9 +284,9 @@ exports.AddDoctor = functions.https.onRequest(async (req, res) => {
 exports.DeleteDoctor = functions.https.onRequest(async (req, res) => {
     ''
     cors(req, res, async () => {
-        const {doctorId} = req.body;
+        const {name, surname} = req.body;
         try {
-            const meet = await admin.firestore().collection('rendezvous').where('doctorId', '==', doctorId).get();
+            const meet = await admin.firestore().collection('rendezvous').where('doctorName', '==', name).where('doctorSurname', '==', surname).get();
             if (!meet.empty) {
                 const doctor = await admin.firestore().collection('doctors').doc(doctorId).delete();
                 if (doctor) {
@@ -230,7 +303,7 @@ exports.DeleteDoctor = functions.https.onRequest(async (req, res) => {
     });
 });
 // TODO : need to modify this function to get the doctor id from the rendezvous collection
-exports.notifyUser = functions.firestore.document('AddDoctor/{email}').onCreate(async (snap, context) => {
+exports.notifyUser = functions.firestore.document('AddDoctor').onCreate(async (snap, context) => {
     const {name, surname, speciality, location, phone, email} = snap.data();
     const payload = {
         notification: {
@@ -276,5 +349,19 @@ exports.searchclinic = async (req, res) => {
         res.status(400).send(error.message)
     }
 }
+exports.getAllRendezVous = functions.https.onRequest(async (req, res) => {
+    cors(req, res, async () => {
+        const rendezvous = await admin.firestore().collection('rendezvous').get();
+        const rendezvousList = [];
+        try {
+            rendezvous.forEach((doc) => {
+                rendezvousList.push(doc.data());
+            });
+            res.status(200).send(rendezvousList);
 
+        } catch (error) {
+            res.status(400).send("error while getting rendezvous list", error)
+        }
+    })
+})
 

@@ -33,7 +33,8 @@ Content-Type: application/json
   "speciality": "Dentist",
   "phone": "92652461",
   "location": "Tunis",
-  "email": "ahmedboussif@gmail.com"
+  "email": "mabrouki552@gmail.com",
+  "password": "djou123456"
 }
 ###
 GET http://127.0.0.1:5001/parkingapp-af332/us-central1/getAllDoctors
