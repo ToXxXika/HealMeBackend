@@ -98,34 +98,57 @@ exports.getDoctors = functions.https.onRequest(async (req, res) => {
 //TODO:  verify if the doctor is available at the time
 
 exports.SetRendezVous = functions.https.onRequest(async (req, res) => {
-    const {doctorId, userId, date, time} = req.body;
-    try {
-        const available = await admin.firestore().collection('timetable').where('doctorId', '==', doctorId).where('date', '==', date).where('time', '==', time).get();
-        if (available.empty) {
-            const rendezvous = await admin.firestore().collection('rendezvous').add({
-                doctorId: doctorId,
-                userId: userId,
-                date: date,
-                time: time,
-            });
-            if (rendezvous) {
-                const timetable = await admin.firestore().collection('timetable').add({
+    cors(req, res, async () => {
+        const {doctorId, userId, date, time} = req.body
+        let payload = {};
+        try {
+            const available = await admin.firestore().collection('timetable').where('doctorId', '==', doctorId).where('date', '==', date).where('time', '==', time).get();
+            if (available.empty) {
+                const rendezvous = await admin.firestore().collection('rendezvous').add({
                     doctorId: doctorId,
+                    userId: userId,
                     date: date,
                     time: time,
-                    availabality: false
-                })
-                res.status(200).send("Rendezvous Set");
-                return;
-            } else res.status(400).send("Rendezvous Failed");
-        } else {
-            res.status(401).send("Doctor Not Available");
+                });
+                if (rendezvous) {
+                    const timetable = await admin.firestore().collection('timetable').add({
+                        doctorId: doctorId,
+                        userId: userId,
+                        date: date,
+                        time: time,
+                        availability: false
+                    })
+                    if (timetable) {
+                        payload={
+                            status:200,
+                            message:"Rendezvous created successfully"
+                        }
+                        res.status(200).send(payload);
+                        return ;
+                    }
+
+                } else{
+                    payload = {
+                        status: 400,
+                        message: "Rendezvous not created",
+                    }
+                    res.status(400).send(payload);
+                }
+            } else {
+                payload = {
+                    status: 401,
+                    message: "Doctor not available at this time",
+                }
+                res.status(401).send(payload);
+            }
+
+        } catch (error) {
+            console.log(error);
+            res.status(400).send(error.message);
         }
 
-    } catch (error) {
-        console.log(error);
-        res.status(400).send(error.message);
-    }
+    });
+
 });
 // get rendez vous by specific doctor 
 exports.getDoctorRendezVous = functions.https.onRequest(async (req, res) => {
@@ -282,19 +305,60 @@ exports.AddDoctor = functions.https.onRequest(async (req, res) => {
 
 });
 exports.DeleteDoctor = functions.https.onRequest(async (req, res) => {
-    ''
     cors(req, res, async () => {
-        const {name, surname} = req.body;
+        const {email} = req.body;
+        let payload = {};
         try {
-            const meet = await admin.firestore().collection('rendezvous').where('doctorName', '==', name).where('doctorSurname', '==', surname).get();
-            if (!meet.empty) {
-                const doctor = await admin.firestore().collection('doctors').doc(doctorId).delete();
+            const meet = await admin.firestore().collection('rendezvous').where('doctorId', '==', email).get();
+            if (meet.empty) {
+                const doctor = await admin.firestore().collection('doctors').doc(email).delete();
                 if (doctor) {
-                    res.status(200).send("Doctor Deleted");
-                    return;
+                    const x  = await admin.auth().getUserByEmail(email);
+                    console.log(x.uid)
+                   const doctorauth = await admin.auth().deleteUser(x.uid);
+                    if(doctorauth){
+                        payload = {
+                            status: "200",
+                            message: "Doctor Deleted"
+                        }
+                        res.status(200).send(payload);
+
+                    }
+
                 }
             } else {
-                res.status(401).send("Doctor has rendezvous");
+                //delete the doctor document
+                 const rdv = await admin.firestore().collection('rendezvous').where('doctorId', '==', email).get();
+                 const batch = admin.firestore().batch();
+                 rdv.forEach((doc)=>{
+                     batch.delete(doc.ref);
+                 })
+                 console.log(rdv);
+                 if(rdv){
+                     await admin.firestore().collection('doctors').where('email', '==', email).get().then((querySnapshot) => {
+                            querySnapshot.forEach((doc) => {
+                               batch.delete(doc.ref)
+                            });
+                        });
+                     await admin.firestore().collection('timetable').where('doctorId', '==', email).get().then((querySnapshot) => {
+                            querySnapshot.forEach((doc) => {
+                                batch.delete(doc.ref)
+                            });
+
+                        });
+                     await batch.commit();
+                     const x = await admin.auth().getUserByEmail(email);
+                     console.log(x.uid)
+                     const doctorauth2 = await admin.auth().deleteUser(x.uid);
+
+                            payload = {
+                                status: "200",
+                                message: "Doctor Deleted"
+                            }
+                            res.status(200).send(payload);
+
+
+                 }
             }
         } catch (error) {
             console.log(error);

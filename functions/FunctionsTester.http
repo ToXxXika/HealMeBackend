@@ -28,12 +28,12 @@ POST http://127.0.0.1:5001/parkingapp-af332/us-central1/AddDoctor
 Content-Type: application/json
 
 {
-  "name": "Ahmed",
-  "surname": "Boussif",
-  "speciality": "Dentist",
+  "name": "Sami",
+  "surname": "Seddik",
+  "speciality": "Generaliste",
   "phone": "92652461",
   "location": "Tunis",
-  "email": "mabrouki552@gmail.com",
+  "email": "sami.seddik@pi.tn",
   "password": "djou123456"
 }
 ###
@@ -44,8 +44,15 @@ POST http://127.0.0.1:5001/parkingapp-af332/us-central1/SetRendezVous
 Content-Type: application/json
 
 {
- "doctorId":"ahmedboussif@gmail.com",
- "userId": "abc@gmail.com",
+ "doctorId":"winnersahmed@gmail.com",
+ "userId": "mabrouki552@gmail.com",
   "date": "2023-05-20",
   "time": "10:00"
+}
+###
+POST http://127.0.0.1:5001/parkingapp-af332/us-central1/DeleteDoctor
+Content-Type: application/json
+
+{
+  "email": "winnersahmed@gmail.com"
 }
